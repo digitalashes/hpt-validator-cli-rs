@@ -26,18 +26,18 @@ pub fn render(report: &Report) -> String {
     let color = io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
     let paint = |out: &mut String, code: u8, text: &str| {
         if color {
-            writeln!(out, "\x1b[{code}m{text}\x1b[39m").unwrap();
+            writeln!(out, "\x1b[{code}m{text}\x1b[39m").expect("a String write cannot fail");
         } else {
-            writeln!(out, "{text}").unwrap();
+            writeln!(out, "{text}").expect("a String write cannot fail");
         }
     };
     let count = |n: usize, what: &str| match n {
         1 => format!("1 {what} found"),
         n => format!("{n} {what}s found"),
     };
-    writeln!(out, "Validator run completed at {}", now()).unwrap();
+    writeln!(out, "Validator run completed at {}", now()).expect("a String write cannot fail");
     if let Some(t) = report.file_type {
-        writeln!(out, "File type: {}", file_type(t)).unwrap();
+        writeln!(out, "File type: {}", file_type(t)).expect("a String write cannot fail");
     }
     if report.errors.is_empty() {
         paint(&mut out, 32, "No errors found");
@@ -89,7 +89,7 @@ fn table(out: &mut String, findings: &[Finding]) {
         .collect();
     let rule = |out: &mut String, [left, middle, right]: [&str; 3]| {
         let parts: Vec<String> = widths.iter().map(|w| "─".repeat(w + 2)).collect();
-        writeln!(out, "{left}{}{right}", parts.join(middle)).unwrap();
+        writeln!(out, "{left}{}{right}", parts.join(middle)).expect("a String write cannot fail");
     };
     let line = |out: &mut String, cells: Vec<&str>| {
         for (i, (cell, w)) in cells.iter().zip(&widths).enumerate() {
@@ -113,9 +113,6 @@ fn table(out: &mut String, findings: &[Finding]) {
 // ponytail: Node's ICU builds also give 2 to emoji with Emoji_Presentation and 0 to every
 // nonspacing mark and format character; port those tables if such text misaligns a table.
 fn width(s: &str) -> usize {
-    if s.is_ascii() {
-        return s.bytes().filter(|b| !b.is_ascii_control()).count();
-    }
     const WIDE: &[(u32, u32)] = &[
         (0x1100, 0x115f),
         (0x2329, 0x232a),
@@ -145,17 +142,16 @@ fn width(s: &str) -> usize {
         (0xfe20, 0xfe2f),
         (0xe0100, 0xe01ef),
     ];
+    if s.is_ascii() {
+        return s.bytes().filter(|b| !b.is_ascii_control()).count();
+    }
     let within =
         |table: &[(u32, u32)], c: char| table.iter().any(|&(a, b)| (a..=b).contains(&(c as u32)));
     s.chars()
-        .map(|c| {
-            if within(WIDE, c) {
-                2
-            } else if within(ZERO, c) {
-                0
-            } else {
-                1
-            }
+        .map(|c| match c {
+            c if within(WIDE, c) => 2,
+            c if within(ZERO, c) => 0,
+            _ => 1,
         })
         .sum()
 }
@@ -228,7 +224,7 @@ fn inspect(s: &str) -> String {
             '\\' => out.push_str("\\\\"),
             '\'' if quote == '\'' => out.push_str("\\'"),
             c if c < ' ' || ('\u{7f}'..='\u{9f}').contains(&c) => {
-                write!(out, "\\x{:02X}", c as u32).unwrap()
+                write!(out, "\\x{:02X}", u32::from(c)).expect("a String write cannot fail");
             }
             c => out.push(c),
         }

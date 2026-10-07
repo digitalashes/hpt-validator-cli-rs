@@ -2,6 +2,8 @@
 //! each version the CLI accepts; then the paths around it: gzip, standard input, Extended
 //! and the exit codes.
 
+#![expect(clippy::unwrap_used, reason = "a broken case should fail the test")]
+
 use serde_json::Value;
 use std::fs;
 use std::io::Write;
@@ -63,7 +65,7 @@ fn check((case, key, want): &(String, String, Value)) -> Option<String> {
         && got["dataDictionaryVersion"] == version[1..]
         && got["errorCount"] == want["errors"].as_array().unwrap().len()
         && got["alertCount"] == want["alerts"].as_array().unwrap().len()
-        && out.status.code() == Some(if valid { 0 } else { 1 });
+        && out.status.code() == Some(i32::from(!valid));
     (!ok).then(|| format!("{case} {key}\n  got  {got}\n  want {want}"))
 }
 
@@ -88,7 +90,7 @@ fn golden() {
         }
     }
     // A process per run; spread them over the cores.
-    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let threads = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
     let failed: Vec<String> = std::thread::scope(|scope| {
         let chunks = runs.chunks(runs.len().div_ceil(threads));
         let handles: Vec<_> = (chunks

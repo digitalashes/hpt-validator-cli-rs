@@ -85,7 +85,7 @@ pub fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
                     "csv" => Format::Csv,
                     "json" => Format::Json,
                     v => return Err(invalid(FORMAT, v, "Allowed choices are csv, json.")),
-                })
+                });
             }
             "-o" | "--output" => {
                 json = match value(OUTPUT)?.as_str() {

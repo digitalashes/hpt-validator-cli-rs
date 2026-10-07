@@ -27,12 +27,13 @@ pub fn render(report: &Report, file: &str, version: &str) -> String {
         report.errors.len(),
         report.alerts.len(),
     )
-    .unwrap();
+    .expect("a String write cannot fail");
     list(&mut out, &report.errors);
     out.push_str(",\"alerts\":");
     list(&mut out, &report.alerts);
     if let Some(t) = report.file_type {
-        write!(out, ",\"fileType\":\"{}\",\"extended\":", file_type(t)).unwrap();
+        write!(out, ",\"fileType\":\"{}\",\"extended\":", file_type(t))
+            .expect("a String write cannot fail");
         list(&mut out, &report.extended);
     }
     out.push('}');
@@ -51,7 +52,9 @@ fn json_str(s: &str) -> String {
             '\t' => out.push_str("\\t"),
             '\u{8}' => out.push_str("\\b"),
             '\u{c}' => out.push_str("\\f"),
-            c if c < ' ' => write!(out, "\\u{:04x}", c as u32).unwrap(),
+            c if c < ' ' => {
+                write!(out, "\\u{:04x}", u32::from(c)).expect("a String write cannot fail");
+            }
             c => out.push(c),
         }
     }

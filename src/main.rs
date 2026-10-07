@@ -56,5 +56,9 @@ fn main() -> ExitCode {
     } else {
         table::render(&report)
     });
-    ExitCode::from(if report.valid() { 0 } else { 1 })
+    if report.valid() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
 }
