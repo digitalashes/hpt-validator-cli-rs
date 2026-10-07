@@ -41,24 +41,24 @@ hpt-validator standardcharges.json.gz 2.2 -o json
 curl -s https://example.org/standardcharges.csv | hpt-validator - v3.0 -f csv
 ```
 
-| Argument or option | Meaning |
-| --- | --- |
-| `<filepath>` | The file to validate, or `-` for standard input. A `.gz` file is decompressed. |
-| `<version>` | `v2.1`, `v2.2` or `v3.0`. A bare major picks its newest minor: `2` is 2.2. |
-| `-f, --format csv\|json` | The file format; by default taken from the extension, ignoring `.gz`. |
-| `-o, --output table\|json` | Tables for people (the default) or one JSON object. |
-| `-e, --error-limit <n>` | Stop after `n` errors; alerts are capped at `n` too. Default 1000, `0` for no limit. |
-| `--extended` | Also report the file type and what upstream drops or never reports. |
-| `-V, --version` | Print the CLI and validator versions. |
+| Argument or option         | Meaning                                                                              |
+|----------------------------|--------------------------------------------------------------------------------------|
+| `<filepath>`               | The file to validate, or `-` for standard input. A `.gz` file is decompressed.       |
+| `<version>`                | `v2.1`, `v2.2` or `v3.0`. A bare major picks its newest minor: `2` is 2.2.           |
+| `-f, --format csv\|json`   | The file format; by default taken from the extension, ignoring `.gz`.                |
+| `-o, --output table\|json` | Tables for people (the default) or one JSON object.                                  |
+| `-e, --error-limit <n>`    | Stop after `n` errors; alerts are capped at `n` too. Default 1000, `0` for no limit. |
+| `--extended`               | Also report the file type and what upstream drops or never reports.                  |
+| `-V, --version`            | Print the CLI and validator versions.                                                |
 
 Exit codes:
 
-| Code | Meaning |
-| --- | --- |
-| 0 | The file is valid. Alerts do not change this. |
-| 1 | The file has errors. |
-| 2 | Usage error, or a file type that is neither CSV nor JSON. |
-| 3 | The input could not be read. |
+| Code | Meaning                                                   |
+|------|-----------------------------------------------------------|
+| 0    | The file is valid. Alerts do not change this.             |
+| 1    | The file has errors.                                      |
+| 2    | Usage error, or a file type that is neither CSV nor JSON. |
+| 3    | The input could not be read.                              |
 
 ## Output
 
