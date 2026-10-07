@@ -43,8 +43,7 @@ struct Args {
     version: &'static str,
     format: Option<Format>,
     json: bool,
-    max_errors: usize,
-    extended: bool,
+    options: Options,
 }
 
 fn main() -> ExitCode {
@@ -55,24 +54,32 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let Some(format) = args.format.or_else(|| format_of(&args.path)) else {
+    let path = args.path.to_string_lossy();
+    let gz = path.ends_with(".gz");
+    let Some(format) = args
+        .format
+        .or_else(|| format_of(path.strip_suffix(".gz").unwrap_or(&path)))
+    else {
         let message = "This is not a valid file type. Files must be in a required CMS template format (.json or .csv)";
-        print(&match args.json {
-            true => pretty(&format!("{{\"error\":{}}}", json_str(message))) + "\n",
-            false => format!("{message}\n"),
+        print(&if args.json {
+            format!("{{\n  \"error\": \"{message}\"\n}}\n")
+        } else {
+            format!("{message}\n")
         });
         return ExitCode::from(2);
     };
-    let input = match open(&args.path) {
-        Ok(input) => input,
-        Err(e) => {
-            eprintln!("error: {}: {e}", args.path.to_string_lossy());
-            return ExitCode::from(3);
-        }
+    let unreadable = |e: &dyn std::fmt::Display| {
+        eprintln!("error: {path}: {e}");
+        ExitCode::from(3)
     };
-    let file = match args.path == "-" {
-        true => "-".to_string(),
-        false => resolve(&args.path),
+    let input = match open(&args.path, gz) {
+        Ok(input) => input,
+        Err(e) => return unreadable(&e),
+    };
+    let file = if args.path == "-" {
+        "-".to_string()
+    } else {
+        resolve(&args.path)
     };
     let version = args.version;
     if !args.json {
@@ -88,56 +95,51 @@ fn main() -> ExitCode {
             now()
         ));
     }
-    let options = Options {
-        max_errors: args.max_errors,
-        mode: if args.extended {
-            Mode::Extended
-        } else {
-            Mode::Default
-        },
-    };
-    let report = match hpt_validator::validate(input, format, version, &options) {
+    let report = match hpt_validator::validate(input, format, version, &args.options) {
         Ok(report) => report,
-        Err(e) => {
-            eprintln!("error: {}: {e}", args.path.to_string_lossy());
-            return ExitCode::from(3);
-        }
+        Err(e) => return unreadable(&e),
     };
 
     let mut out = String::new();
     if args.json {
-        let list = |findings: &[Finding]| {
-            let items: Vec<String> = findings.iter().map(Finding::to_json).collect();
-            format!("[{}]", items.join(","))
+        let list = |out: &mut String, findings: &[Finding]| {
+            out.push('[');
+            for (i, finding) in findings.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                out.push_str(&finding.to_json());
+            }
+            out.push(']');
         };
         write!(
             out,
             "{{\"file\":{},\"validatorVersion\":\"{VERSION}\",\"dataDictionaryVersion\":\"{version}\",\
-             \"timestamp\":\"{}\",\"valid\":{},\"errorCount\":{},\"alertCount\":{},\"errors\":{},\"alerts\":{}",
+             \"timestamp\":\"{}\",\"valid\":{},\"errorCount\":{},\"alertCount\":{},\"errors\":",
             json_str(&file),
             now(),
             report.valid(),
             report.errors.len(),
             report.alerts.len(),
-            list(&report.errors),
-            list(&report.alerts),
         )
         .unwrap();
+        list(&mut out, &report.errors);
+        out.push_str(",\"alerts\":");
+        list(&mut out, &report.alerts);
         if let Some(file_type) = report.file_type {
-            let extended = list(&report.extended);
-            write!(
-                out,
-                ",\"fileType\":\"{}\",\"extended\":{extended}",
-                name(file_type)
-            )
-            .unwrap();
+            write!(out, ",\"fileType\":\"{}\",\"extended\":", name(file_type)).unwrap();
+            list(&mut out, &report.extended);
         }
-        out = pretty(&(out + "}")) + "\n";
+        out.push('}');
+        out = pretty(&out);
     } else {
         let color = io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
-        let paint = |code: u8, text: String| match color {
-            true => format!("\x1b[{code}m{text}\x1b[39m\n"),
-            false => text + "\n",
+        let paint = |out: &mut String, code: u8, text: &str| {
+            if color {
+                writeln!(out, "\x1b[{code}m{text}\x1b[39m").unwrap();
+            } else {
+                writeln!(out, "{text}").unwrap();
+            }
         };
         let count = |n: usize, what: &str| match n {
             1 => format!("1 {what} found"),
@@ -148,17 +150,21 @@ fn main() -> ExitCode {
             writeln!(out, "File type: {}", name(file_type)).unwrap();
         }
         if report.errors.is_empty() {
-            out += &paint(32, "No errors found".into());
+            paint(&mut out, 32, "No errors found");
         } else {
-            out += &paint(31, count(report.errors.len(), "error"));
-            out += &table(&report.errors);
+            paint(&mut out, 31, &count(report.errors.len(), "error"));
+            table(&mut out, &report.errors);
         }
         // Upstream prints the alert count and table even when there are none.
-        out += &paint(33, count(report.alerts.len(), "alert"));
-        out += &table(&report.alerts);
+        paint(&mut out, 33, &count(report.alerts.len(), "alert"));
+        table(&mut out, &report.alerts);
         if report.file_type.is_some() {
-            out += &paint(36, count(report.extended.len(), "extended finding"));
-            out += &table(&report.extended);
+            paint(
+                &mut out,
+                36,
+                &count(report.extended.len(), "extended finding"),
+            );
+            table(&mut out, &report.extended);
         }
     }
     print(&out);
@@ -168,7 +174,11 @@ fn main() -> ExitCode {
 /// The arguments, or a usage error. `--help` and `--version` print and exit.
 fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
     let mut positional = Vec::new();
-    let (mut format, mut json, mut max_errors, mut extended) = (None, false, 1000, false);
+    let (mut format, mut json) = (None, false);
+    let mut options = Options {
+        max_errors: 1000,
+        mode: Mode::Default,
+    };
     while let Some(arg) = args.next() {
         let text = arg.to_string_lossy().into_owned();
         if text == "-" || !text.starts_with('-') {
@@ -200,7 +210,7 @@ fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
                 ));
                 std::process::exit(0);
             }
-            "--extended" => extended = true,
+            "--extended" => options.mode = Mode::Extended,
             "-f" | "--format" => {
                 format = Some(match value(FORMAT)?.as_str() {
                     "csv" => Format::Csv,
@@ -217,7 +227,7 @@ fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
             }
             "-e" | "--error-limit" => {
                 let v = value(LIMIT)?;
-                max_errors = error_limit(&v).map_err(|why| invalid(LIMIT, &v, why))?;
+                options.max_errors = error_limit(&v).map_err(|why| invalid(LIMIT, &v, why))?;
             }
             _ => return Err(format!("unknown option '{text}'")),
         }
@@ -239,8 +249,7 @@ fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
         version,
         format,
         json,
-        max_errors,
-        extended,
+        options,
     })
 }
 
@@ -255,32 +264,28 @@ fn adjust_version(text: &str) -> Option<&'static str> {
     }
 }
 
-/// Major and minor of `semver.coerce`: the first run of at most 16 digits, then `.` and
-/// at most 16 digits if they follow.
+/// Major and minor of `semver.coerce`: the first run of 1–16 digits and up to two more
+/// after dots, then semver's parse, which refuses leading zeros and unsafe integers.
 fn coerce(text: &str) -> Option<(u64, u64)> {
     let b = text.as_bytes();
-    let digits = |i: usize| {
-        b[i.min(b.len())..]
-            .iter()
-            .take_while(|c| c.is_ascii_digit())
-            .count()
+    let run = |i: usize| {
+        b.get(i..)
+            .map_or(0, |r| r.iter().take_while(|c| c.is_ascii_digit()).count())
     };
-    let mut i = 0;
-    while i < b.len() {
-        let n = digits(i);
-        if (1..=16).contains(&n) {
-            let m = digits(i + n + 1);
-            let minor = match b.get(i + n) {
-                Some(b'.') if (1..=16).contains(&m) => {
-                    text[i + n + 1..i + n + 1 + m].parse().ok()?
-                }
-                _ => 0,
-            };
-            return Some((text[i..i + n].parse().ok()?, minor));
-        }
-        i += n.max(1);
+    let starts = |&i: &usize| (i == 0 || !b[i - 1].is_ascii_digit()) && (1..=16).contains(&run(i));
+    let start = (0..b.len()).find(starts)?;
+    let mut end = start + run(start);
+    let mut parts = vec![&text[start..end]];
+    while parts.len() < 3 && b.get(end) == Some(&b'.') && (1..=16).contains(&run(end + 1)) {
+        parts.push(&text[end + 1..end + 1 + run(end + 1)]);
+        end += 1 + run(end + 1);
     }
-    None
+    let number = |p: &&str| match p.parse::<u64>() {
+        Ok(n) if n < 1 << 53 && (*p == "0" || !p.starts_with('0')) => Some(n),
+        _ => None,
+    };
+    let numbers: Vec<u64> = parts.iter().map(number).collect::<Option<_>>()?;
+    Some((numbers[0], numbers.get(1).copied().unwrap_or(0)))
 }
 
 /// Commander's `parseInt(value, 10)`. Upstream reads a negative limit as no limit on
@@ -301,11 +306,14 @@ fn error_limit(text: &str) -> Result<usize, &'static str> {
     Ok(digits.parse().unwrap_or(usize::MAX))
 }
 
-/// The format from the extension, after a `.gz` suffix is removed.
-fn format_of(path: &OsStr) -> Option<Format> {
-    let path = path.to_string_lossy();
-    let path = Path::new(path.strip_suffix(".gz").unwrap_or(&path));
-    match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+/// The format from the extension.
+fn format_of(path: &str) -> Option<Format> {
+    match Path::new(path)
+        .extension()?
+        .to_str()?
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "csv" => Some(Format::Csv),
         "json" => Some(Format::Json),
         _ => None,
@@ -315,14 +323,16 @@ fn format_of(path: &OsStr) -> Option<Format> {
 // ponytail: upstream's gunzip hands the parser 16 KiB chunks, not 64 KiB, which moves the
 // position in a JSON syntax error message for a .gz file past 16 KiB; read in 16 KiB chunks
 // if that matters.
-fn open(path: &OsStr) -> io::Result<Box<dyn Read>> {
-    let input: Box<dyn Read> = match path == "-" {
-        true => Box::new(io::stdin().lock()),
-        false => Box::new(File::open(path)?),
+fn open(path: &OsStr, gz: bool) -> io::Result<Box<dyn Read>> {
+    let input: Box<dyn Read> = if path == "-" {
+        Box::new(io::stdin().lock())
+    } else {
+        Box::new(File::open(path)?)
     };
-    Ok(match path.to_string_lossy().ends_with(".gz") {
-        true => Box::new(MultiGzDecoder::new(input)),
-        false => input,
+    Ok(if gz {
+        Box::new(MultiGzDecoder::new(input))
+    } else {
+        input
     })
 }
 
@@ -336,7 +346,9 @@ fn resolve(path: &OsStr) -> String {
     let mut resolved = PathBuf::new();
     for part in std::path::absolute(path).unwrap_or_default().components() {
         match part {
-            Component::ParentDir => drop(resolved.pop()),
+            Component::ParentDir => {
+                resolved.pop();
+            }
             part => resolved.push(part),
         }
     }
@@ -348,7 +360,7 @@ fn name(file_type: FileType) -> &'static str {
         FileType::Json => "json",
         FileType::Tall => "tall",
         FileType::Wide => "wide",
-        _ => "unknown",
+        FileType::Unknown => "unknown",
     }
 }
 
@@ -393,13 +405,13 @@ fn json_str(s: &str) -> String {
     out + "\""
 }
 
-/// Compact JSON laid out as `JSON.stringify(value, null, 2)` does.
+/// Compact JSON laid out as `JSON.stringify(value, null, 2)` does, and a newline.
 fn pretty(json: &str) -> String {
-    let mut out = String::new();
+    let mut out = String::with_capacity(json.len() * 2);
     let (mut depth, mut string, mut escaped) = (0, false, false);
     let newline = |out: &mut String, depth: usize| {
         out.push('\n');
-        out.push_str(&"  ".repeat(depth));
+        (0..depth).for_each(|_| out.push_str("  "));
     };
     let mut chars = json.chars().peekable();
     while let Some(c) = chars.next() {
@@ -426,51 +438,57 @@ fn pretty(json: &str) -> String {
             _ => {}
         }
     }
+    out.push('\n');
     out
 }
 
 /// Node's `console.table(findings)` without colours: an `(index)` column, then one column
 /// per upstream key in the order keys first appear, cells as `util.inspect` shows them.
 /// Upstream's table has no `code`; Extended adds `line`.
-fn table(findings: &[Finding]) -> String {
-    let mut head = vec!["(index)"];
-    let mut columns = vec![
-        (0..findings.len())
-            .map(|i| i.to_string())
-            .collect::<Vec<_>>(),
-    ];
-    for (row, finding) in findings.iter().enumerate() {
-        for (key, cell) in cells(finding) {
-            let column = head.iter().position(|&h| h == key).unwrap_or_else(|| {
-                head.push(key);
-                columns.push(Vec::new());
-                head.len() - 1
-            });
-            columns[column].resize(row, String::new());
-            columns[column].push(cell);
-        }
+fn table(out: &mut String, findings: &[Finding]) {
+    fn cell<'a>(row: &'a [(&str, String)], key: &str) -> &'a str {
+        row.iter().find(|(k, _)| *k == key).map_or("", |(_, c)| c)
     }
-    let widths: Vec<usize> = (head.iter().zip(&mut columns))
-        .map(|(h, column)| {
-            column.resize(findings.len(), String::new());
-            column.iter().map(|s| width(s)).fold(width(h), usize::max)
+    let rows: Vec<Vec<(&str, String)>> = (findings.iter().enumerate())
+        .map(|(i, f)| {
+            [("(index)", i.to_string())]
+                .into_iter()
+                .chain(cells(f))
+                .collect()
         })
         .collect();
-    let rule = |left: &str, middle: &str, right: &str| {
-        let parts: Vec<String> = widths.iter().map(|w| "─".repeat(w + 2)).collect();
-        format!("{left}{}{right}\n", parts.join(middle))
-    };
-    let row = |cells: Vec<&str>| {
-        let parts: Vec<String> = (cells.iter().zip(&widths))
-            .map(|(cell, w)| format!("{cell}{}", " ".repeat(w - width(cell))))
-            .collect();
-        format!("│ {} │\n", parts.join(" │ "))
-    };
-    let mut out = rule("┌", "┬", "┐") + &row(head.clone()) + &rule("├", "┼", "┤");
-    for i in 0..findings.len() {
-        out += &row(columns.iter().map(|c| c[i].as_str()).collect());
+    let mut head = vec!["(index)"];
+    for &(key, _) in rows.iter().flatten() {
+        if !head.contains(&key) {
+            head.push(key);
+        }
     }
-    out + &rule("└", "┴", "┘")
+    let widths: Vec<usize> = (head.iter())
+        .map(|key| {
+            rows.iter()
+                .map(|row| width(cell(row, key)))
+                .fold(width(key), usize::max)
+        })
+        .collect();
+    let rule = |out: &mut String, [left, middle, right]: [&str; 3]| {
+        let parts: Vec<String> = widths.iter().map(|w| "─".repeat(w + 2)).collect();
+        writeln!(out, "{left}{}{right}", parts.join(middle)).unwrap();
+    };
+    let line = |out: &mut String, cells: Vec<&str>| {
+        for (i, (cell, w)) in cells.iter().zip(&widths).enumerate() {
+            out.push_str(if i == 0 { "│ " } else { " │ " });
+            out.push_str(cell);
+            (width(cell)..*w).for_each(|_| out.push(' '));
+        }
+        out.push_str(" │\n");
+    };
+    rule(out, ["┌", "┬", "┐"]);
+    line(out, head.clone());
+    rule(out, ["├", "┼", "┤"]);
+    for row in &rows {
+        line(out, head.iter().map(|key| cell(row, key)).collect());
+    }
+    rule(out, ["└", "┴", "┘"]);
 }
 
 /// Columns `s` takes, by the rules of Node's `getStringWidth` in builds without ICU: wide
@@ -478,6 +496,9 @@ fn table(findings: &[Finding]) -> String {
 // ponytail: Node's ICU builds also give 2 to emoji with Emoji_Presentation and 0 to every
 // nonspacing mark and format character; port those tables if such text misaligns a table.
 fn width(s: &str) -> usize {
+    if s.is_ascii() {
+        return s.bytes().filter(|b| !b.is_ascii_control()).count();
+    }
     const WIDE: &[(u32, u32)] = &[
         (0x1100, 0x115f),
         (0x2329, 0x232a),
@@ -578,7 +599,8 @@ fn inspect(s: &str) -> String {
         (true, false, _) => '"',
         (true, true, false) => '`',
     };
-    let mut out = String::from(quote);
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push(quote);
     for c in s.chars() {
         match c {
             '\n' => out.push_str("\\n"),
