@@ -1,6 +1,6 @@
 //! `-o json`: the object upstream prints with `JSON.stringify(result, null, 2)`.
 
-use crate::output::{file_type, now};
+use crate::output::now;
 use hpt_validator::{Finding, Report, VERSION};
 use std::fmt::Write as _;
 
@@ -32,7 +32,7 @@ pub fn render(report: &Report, file: &str, version: &str) -> String {
     out.push_str(",\"alerts\":");
     list(&mut out, &report.alerts);
     if let Some(t) = report.file_type {
-        write!(out, ",\"fileType\":\"{}\",\"extended\":", file_type(t))
+        write!(out, ",\"fileType\":\"{}\",\"extended\":", t.as_str())
             .expect("a String write cannot fail");
         list(&mut out, &report.extended);
     }

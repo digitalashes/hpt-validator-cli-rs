@@ -1,22 +1,11 @@
 //! What both output formats share.
 
-use hpt_validator::FileType;
 use std::io::{self, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Writes to standard output; a closed pipe is not an error worth reporting.
 pub fn print(text: &str) {
     let _ = io::stdout().lock().write_all(text.as_bytes());
-}
-
-/// The Extended file type as the output names it.
-pub fn file_type(file_type: FileType) -> &'static str {
-    match file_type {
-        FileType::Json => "json",
-        FileType::Tall => "tall",
-        FileType::Wide => "wide",
-        FileType::Unknown => "unknown",
-    }
 }
 
 /// `new Date().toISOString()`.

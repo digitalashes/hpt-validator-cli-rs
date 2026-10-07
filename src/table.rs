@@ -1,6 +1,6 @@
 //! `-o table`, the default: upstream's lines around `console.table` of the findings.
 
-use crate::output::{file_type, now};
+use crate::output::now;
 use hpt_validator::{Code, Finding, Report, VERSION};
 use std::fmt::Write as _;
 use std::io::{self, IsTerminal};
@@ -37,7 +37,7 @@ pub fn render(report: &Report) -> String {
     };
     writeln!(out, "Validator run completed at {}", now()).expect("a String write cannot fail");
     if let Some(t) = report.file_type {
-        writeln!(out, "File type: {}", file_type(t)).expect("a String write cannot fail");
+        writeln!(out, "File type: {}", t.as_str()).expect("a String write cannot fail");
     }
     if report.errors.is_empty() {
         paint(&mut out, 32, "No errors found");
