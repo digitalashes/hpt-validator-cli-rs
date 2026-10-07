@@ -96,18 +96,10 @@ fn golden() {
         let handles: Vec<_> = (chunks
             .map(|chunk| scope.spawn(move || chunk.iter().filter_map(check).collect::<Vec<_>>())))
         .collect();
-        handles
-            .into_iter()
-            .flat_map(|h| h.join().unwrap())
-            .collect()
+        handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
     });
     let checked = runs.len();
-    assert!(
-        failed.is_empty(),
-        "{} of {checked} failed:\n{}",
-        failed.len(),
-        failed.join("\n")
-    );
+    assert!(failed.is_empty(), "{} of {checked} failed:\n{}", failed.len(), failed.join("\n"));
     assert!(checked > 1500, "only {checked} results checked");
 }
 

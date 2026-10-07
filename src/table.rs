@@ -49,11 +49,7 @@ pub fn render(report: &Report) -> String {
     paint(&mut out, 33, &count(report.alerts.len(), "alert"));
     table(&mut out, &report.alerts);
     if report.file_type.is_some() {
-        paint(
-            &mut out,
-            36,
-            &count(report.extended.len(), "extended finding"),
-        );
+        paint(&mut out, 36, &count(report.extended.len(), "extended finding"));
         table(&mut out, &report.extended);
     }
     out
@@ -67,12 +63,7 @@ fn table(out: &mut String, findings: &[Finding]) {
         row.iter().find(|(k, _)| *k == key).map_or("", |(_, c)| c)
     }
     let rows: Vec<Vec<(&str, String)>> = (findings.iter().enumerate())
-        .map(|(i, f)| {
-            [("(index)", i.to_string())]
-                .into_iter()
-                .chain(cells(f))
-                .collect()
-        })
+        .map(|(i, f)| [("(index)", i.to_string())].into_iter().chain(cells(f)).collect())
         .collect();
     let mut head = vec!["(index)"];
     for &(key, _) in rows.iter().flatten() {
@@ -81,11 +72,7 @@ fn table(out: &mut String, findings: &[Finding]) {
         }
     }
     let widths: Vec<usize> = (head.iter())
-        .map(|key| {
-            rows.iter()
-                .map(|row| width(cell(row, key)))
-                .fold(width(key), usize::max)
-        })
+        .map(|key| rows.iter().map(|row| width(cell(row, key))).fold(width(key), usize::max))
         .collect();
     let rule = |out: &mut String, [left, middle, right]: [&str; 3]| {
         let parts: Vec<String> = widths.iter().map(|w| "─".repeat(w + 2)).collect();
@@ -159,19 +146,12 @@ fn width(s: &str) -> usize {
 /// A finding's upstream keys, in upstream's order, with `util.inspect`'s rendering.
 fn cells(f: &Finding) -> Vec<(&'static str, String)> {
     let mut cells = vec![("path", inspect(&f.path)), ("message", inspect(&f.message))];
-    for (key, value) in [
-        ("field", &f.field),
-        ("columnName", &f.column_name),
-        ("value", &f.value),
-    ] {
+    for (key, value) in [("field", &f.field), ("columnName", &f.column_name), ("value", &f.value)] {
         if let Some(value) = value {
             cells.push((key, inspect(value)));
         }
     }
-    for (key, values) in [
-        ("allowedValues", f.allowed_values),
-        ("versions", f.versions),
-    ] {
+    for (key, values) in [("allowedValues", f.allowed_values), ("versions", f.versions)] {
         if let Some(values) = values {
             // `console.table` inspects with maxArrayLength 3.
             let mut items: Vec<String> = values.iter().take(3).map(|v| inspect(v)).collect();
@@ -180,11 +160,8 @@ fn cells(f: &Finding) -> Vec<(&'static str, String)> {
                 1 => items.push("... 1 more item".into()),
                 n => items.push(format!("... {n} more items")),
             }
-            let list = if items.is_empty() {
-                "[]".into()
-            } else {
-                format!("[ {} ]", items.join(", "))
-            };
+            let list =
+                if items.is_empty() { "[]".into() } else { format!("[ {} ]", items.join(", ")) };
             cells.push((key, list));
         }
     }
@@ -203,11 +180,7 @@ fn cells(f: &Finding) -> Vec<(&'static str, String)> {
 /// `util.inspect` of a string: in single quotes, or double quotes or backticks when the
 /// text has a single quote, with Node's escapes.
 fn inspect(s: &str) -> String {
-    let quote = match (
-        s.contains('\''),
-        s.contains('"'),
-        s.contains('`') || s.contains("${"),
-    ) {
+    let quote = match (s.contains('\''), s.contains('"'), s.contains('`') || s.contains("${")) {
         (false, _, _) | (true, true, true) => '\'',
         (true, false, _) => '"',
         (true, true, false) => '`',

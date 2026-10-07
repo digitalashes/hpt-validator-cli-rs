@@ -19,9 +19,8 @@ fn main() -> ExitCode {
     };
     let path = args.path.to_string_lossy();
     let gz = path.ends_with(".gz");
-    let Some(format) = args
-        .format
-        .or_else(|| input::format_of(path.strip_suffix(".gz").unwrap_or(&path)))
+    let Some(format) =
+        args.format.or_else(|| input::format_of(path.strip_suffix(".gz").unwrap_or(&path)))
     else {
         let message = "This is not a valid file type. Files must be in a required CMS template format (.json or .csv)";
         output::print(&if args.json {
@@ -39,11 +38,7 @@ fn main() -> ExitCode {
         Ok(input) => input,
         Err(e) => return unreadable(&e),
     };
-    let file = if args.path == "-" {
-        "-".to_string()
-    } else {
-        input::resolve(&args.path)
-    };
+    let file = if args.path == "-" { "-".to_string() } else { input::resolve(&args.path) };
     if !args.json {
         output::print(&table::preamble(&file, args.version));
     }
@@ -56,9 +51,5 @@ fn main() -> ExitCode {
     } else {
         table::render(&report)
     });
-    if report.valid() {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::FAILURE
-    }
+    if report.valid() { ExitCode::SUCCESS } else { ExitCode::FAILURE }
 }

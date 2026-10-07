@@ -44,10 +44,7 @@ pub struct Args {
 pub fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
     let mut positional = Vec::new();
     let (mut format, mut json) = (None, false);
-    let mut options = Options {
-        max_errors: 1000,
-        mode: Mode::Default,
-    };
+    let mut options = Options { max_errors: 1000, mode: Mode::Default };
     while let Some(arg) = args.next() {
         let text = arg.to_string_lossy().into_owned();
         if text == "-" || !text.starts_with('-') {
@@ -113,13 +110,7 @@ pub fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
              Allowed choices are v2.1, v2.2, v3.0."
         ));
     };
-    Ok(Args {
-        path,
-        version,
-        format,
-        json,
-        options,
-    })
+    Ok(Args { path, version, format, json, options })
 }
 
 /// The CLI's `adjustVersionChoice`: with a dot, the minor version given; without, the
@@ -137,10 +128,8 @@ fn adjust_version(text: &str) -> Option<&'static str> {
 /// after dots, then semver's parse, which refuses leading zeros and unsafe integers.
 fn coerce(text: &str) -> Option<(u64, u64)> {
     let b = text.as_bytes();
-    let run = |i: usize| {
-        b.get(i..)
-            .map_or(0, |r| r.iter().take_while(|c| c.is_ascii_digit()).count())
-    };
+    let run =
+        |i: usize| b.get(i..).map_or(0, |r| r.iter().take_while(|c| c.is_ascii_digit()).count());
     let starts = |&i: &usize| (i == 0 || !b[i - 1].is_ascii_digit()) && (1..=16).contains(&run(i));
     let start = (0..b.len()).find(starts)?;
     let mut end = start + run(start);
