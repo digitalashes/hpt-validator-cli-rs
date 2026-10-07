@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+defaults:
+  run:
+    working-directory: hpt-validator-cli-rs
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: hpt-validator-cli-rs
+      # The validator and its test cases, next to this repository as Cargo.toml and the
+      # tests expect.
+      - uses: actions/checkout@v7
+        with:
+          repository: digitalashes/hpt-validator-rs
+          path: hpt-validator-rs
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
