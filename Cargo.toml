@@ -21,6 +21,11 @@ flate2 = "1"
 [dev-dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
 
+[profile.profiling]
+inherits = "release"
+debug = "line-tables-only"
+strip = false
+
 [lints.rust]
 unsafe_code = "forbid"
 
