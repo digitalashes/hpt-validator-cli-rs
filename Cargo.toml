@@ -6,7 +6,7 @@ rust-version = "1.88"
 description = "Command-line validator for CMS Hospital Price Transparency machine-readable files, a port of @cmsgov/hpt-validator-cli"
 license = "CC0-1.0"
 repository = "https://github.com/digitalashes/hpt-validator-cli-rs"
-keywords = ["cms", "price-transparency", "validator", "healthcare", "cli"]
+keywords = ["cms", "price-transparency", "healthcare", "hospital", "validator"]
 categories = ["command-line-utilities"]
 include = ["/src", "/README.md", "/AGENTS.md", "/LICENSE"]
 
