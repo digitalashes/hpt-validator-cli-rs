@@ -38,7 +38,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: hpt-validator-cli-rs
-      # ponytail: builds against the validator's main branch until it is on crates.io.
+      # ponytail: builds against the validator's main branch, as CI tests it, so a binary
+      # can hold validator changes not yet on crates.io; check out its tag if that matters.
       - uses: actions/checkout@v7
         with:
           repository: digitalashes/hpt-validator-rs
