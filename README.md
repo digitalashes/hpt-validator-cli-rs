@@ -1,5 +1,6 @@
 # hpt-validator-cli
 
+[![crates.io](https://img.shields.io/crates/v/hpt-validator-cli.svg)](https://crates.io/crates/hpt-validator-cli)
 [![CI](https://github.com/digitalashes/hpt-validator-cli-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/digitalashes/hpt-validator-cli-rs/actions/workflows/ci.yml)
 
 A Rust port of [`@cmsgov/hpt-validator-cli`](https://github.com/CMSgov/hpt-validator-cli),
