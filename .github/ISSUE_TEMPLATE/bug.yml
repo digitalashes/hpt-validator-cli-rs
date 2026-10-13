@@ -1,0 +1,40 @@
+name: Bug
+description: Output that differs from upstream's CLI, a crash, or a wrong exit code.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: hpt-validator-cli version
+      description: The first line of `hpt-validator --version`.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      placeholder: hpt-validator standardcharges.csv v3.0 -o json
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Input
+      description: The smallest file that shows the problem. Paste it or attach it.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: Without `--extended`, what `@cmsgov/hpt-validator-cli` 1.10.8 prints for the same command.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+      description: What this CLI prints, and its exit code.
+    validations:
+      required: true
