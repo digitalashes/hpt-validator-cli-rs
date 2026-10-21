@@ -112,6 +112,8 @@ fn paths() {
     let parent = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let resolved = parent.join("hpt-validator-rs/tests/cases/findings/invalid-quotes.csv");
     assert_eq!(plain["file"], resolved.to_str().unwrap());
+    let timestamp = plain["timestamp"].as_str().unwrap();
+    assert!(timestamp.len() == 24 && timestamp.ends_with('Z'), "{timestamp}");
 
     // gzip, picked by the .gz suffix
     let gz = Path::new(env!("CARGO_TARGET_TMPDIR")).join("invalid-quotes.csv.gz");
