@@ -122,6 +122,12 @@ fn paths() {
     assert_eq!(upstream(&json(&out)), upstream(&plain));
     assert_eq!(cli(&["-", "2.1"], &text).status.code(), Some(2));
 
+    // a short option's value may be attached; -e2 keeps 2 of the 3 errors
+    let out = json(&cli(&["-", "2.1", "-fcsv", "-ojson", "-e2"], &text));
+    let limited = json(&cli(&[&case, "2.1", "-o", "json", "-e", "2"], &[]));
+    assert_eq!(upstream(&out), upstream(&limited));
+    assert_eq!(out["errorCount"], 2);
+
     // Extended adds the file type and the quote finding upstream ignores
     let out = json(&cli(&[&case, "2.1", "-o", "json", "--extended"], &[]));
     assert_eq!(upstream(&out), upstream(&plain));
@@ -138,6 +144,9 @@ fn paths() {
         &[&case],
         &[&case, "3", "-e", "x"],
         &[&case, "3", "--x"],
+        &[&case, "3", "-e=5"],
+        &[&case, "3", "-x5"],
+        &[&case, "3", "-é"],
     ] {
         assert_eq!(cli(usage, &[]).status.code(), Some(2), "{usage:?}");
     }

@@ -53,7 +53,12 @@ pub fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
         }
         let (name, mut inline) = match text.split_once('=') {
             Some((name, value)) if name.starts_with("--") => (name, Some(value.to_string())),
-            _ => (text.as_str(), None),
+            _ if text.starts_with("--") => (text.as_str(), None),
+            // Commander reads the rest of a short option as its value: `-e5`, and `-e=5` as `=5`.
+            _ => match text.char_indices().nth(2) {
+                Some((i, _)) => (&text[..i], Some(text[i..].to_string())),
+                None => (text.as_str(), None),
+            },
         };
         let mut value = |option: &str| {
             inline
