@@ -108,6 +108,10 @@ fn paths() {
     let case = format!("{CORE}/cases/findings/invalid-quotes.csv");
     let text = fs::read(&case).unwrap();
     let plain = json(&cli(&[&case, "v2.1", "-o", "json"], &[]));
+    // the file as path.resolve gives it: absolute, `..` resolved by name
+    let parent = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let resolved = parent.join("hpt-validator-rs/tests/cases/findings/invalid-quotes.csv");
+    assert_eq!(plain["file"], resolved.to_str().unwrap());
 
     // gzip, picked by the .gz suffix
     let gz = Path::new(env!("CARGO_TARGET_TMPDIR")).join("invalid-quotes.csv.gz");
@@ -118,8 +122,9 @@ fn paths() {
     assert_eq!(upstream(&json(&out)), upstream(&plain));
 
     // standard input needs -f
-    let out = cli(&["-", "2.1", "-f", "csv", "-o", "json"], &text);
-    assert_eq!(upstream(&json(&out)), upstream(&plain));
+    let out = json(&cli(&["-", "2.1", "-f", "csv", "-o", "json"], &text));
+    assert_eq!(upstream(&out), upstream(&plain));
+    assert_eq!(out["file"], "-");
     assert_eq!(cli(&["-", "2.1"], &text).status.code(), Some(2));
 
     // a short option's value may be attached; -e2 keeps 2 of the 3 errors
@@ -134,7 +139,10 @@ fn paths() {
     assert_eq!(out["fileType"], "tall");
     assert_eq!(out["extended"][0]["code"], "HPT_X_CSV_INVALID_QUOTES");
 
-    // exit codes: invalid 1, usage 2, unreadable input 3
+    // exit codes: help and version 0, invalid 1, usage 2, unreadable input 3
+    for help in ["-h", "--help", "-V", "--version"] {
+        assert_eq!(cli(&[help], &[]).status.code(), Some(0), "{help}");
+    }
     assert_eq!(cli(&[&case, "3"], &[]).status.code(), Some(1));
     for usage in [
         &[&case, "2.0"][..],
