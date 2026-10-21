@@ -146,6 +146,8 @@ fn paths() {
         assert_eq!(cli(&[help], &[]).status.code(), Some(0), "{help}");
     }
     assert_eq!(cli(&[&case, "3"], &[]).status.code(), Some(1));
+    assert_eq!(cli(&[&case, "3", "extra"], &[]).status.code(), Some(1));
+    assert_eq!(cli(&[&case, "3", "-e", "-0"], &[]).status.code(), Some(1));
     for usage in [
         &[&case, "2.0"][..],
         &[&case, "03"],
@@ -153,6 +155,7 @@ fn paths() {
         &[&case, "3.0.01"],
         &[&case],
         &[&case, "3", "-e", "x"],
+        &[&case, "3", "-e", "-5"],
         &[&case, "3", "--x"],
         &[&case, "3", "-e=5"],
         &[&case, "3", "-x5"],

@@ -100,11 +100,10 @@ pub fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
             _ => return Err(format!("unknown option '{text}'")),
         }
     }
-    let [path, version] = <[OsString; 2]>::try_from(positional).map_err(|p| match p.len() {
-        0 => "missing required argument 'filepath'".to_string(),
-        1 => "missing required argument 'version'".to_string(),
-        n => format!("too many arguments. Expected 2 arguments but got {n}."),
-    })?;
+    // Commander 12 ignores arguments past the second.
+    let mut positional = positional.into_iter();
+    let path = positional.next().ok_or("missing required argument 'filepath'")?;
+    let version = positional.next().ok_or("missing required argument 'version'")?;
     let version = version.to_string_lossy();
     let Some(version) = adjust_version(&version) else {
         return Err(format!(
