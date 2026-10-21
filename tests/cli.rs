@@ -123,6 +123,12 @@ fn paths() {
     let out = cli(&[gz.to_str().unwrap(), "2.1", "-o", "json"], &[]);
     assert_eq!(upstream(&json(&out)), upstream(&plain));
 
+    // the file path escaped as JSON.stringify does, a space kept as it is
+    let odd = Path::new(env!("CARGO_TARGET_TMPDIR")).join("a b\x01.csv");
+    fs::write(&odd, &text).unwrap();
+    let out = json(&cli(&[odd.to_str().unwrap(), "2.1", "-o", "json"], &[]));
+    assert_eq!(out["file"], odd.to_str().unwrap());
+
     // standard input needs -f
     let out = json(&cli(&["-", "2.1", "-f", "csv", "-o", "json"], &text));
     assert_eq!(upstream(&out), upstream(&plain));

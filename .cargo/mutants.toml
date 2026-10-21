@@ -1,0 +1,6 @@
+# Mutants that change no output.
+exclude_re = [
+    # Every accepted version has one-digit parts, so the end of a part found from the
+    # previous part's length is the same.
+    'args\.rs:145:28: replace \+ with - in coerce',
+]
