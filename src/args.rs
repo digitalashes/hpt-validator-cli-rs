@@ -51,18 +51,15 @@ pub fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
             positional.push(arg);
             continue;
         }
-        let (name, inline) = match text.split_once('=') {
+        let (name, mut inline) = match text.split_once('=') {
             Some((name, value)) if name.starts_with("--") => (name, Some(value.to_string())),
             _ => (text.as_str(), None),
         };
         let mut value = |option: &str| {
             inline
-                .clone()
+                .take()
                 .or_else(|| args.next().map(|a| a.to_string_lossy().into_owned()))
                 .ok_or(format!("option '{option}' argument missing"))
-        };
-        let invalid = |option: &str, value: &str, why: &str| {
-            format!("option '{option}' argument '{value}' is invalid. {why}")
         };
         match name {
             "-h" | "--help" => {
@@ -111,6 +108,11 @@ pub fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
         ));
     };
     Ok(Args { path, version, format, json, options })
+}
+
+/// Commander's message for an option argument it refuses.
+fn invalid(option: &str, value: &str, why: &str) -> String {
+    format!("option '{option}' argument '{value}' is invalid. {why}")
 }
 
 /// The CLI's `adjustVersionChoice`: with a dot, the minor version given; without, the

@@ -18,10 +18,9 @@ fn main() -> ExitCode {
         }
     };
     let path = args.path.to_string_lossy();
-    let gz = path.ends_with(".gz");
-    let Some(format) =
-        args.format.or_else(|| input::format_of(path.strip_suffix(".gz").unwrap_or(&path)))
-    else {
+    let stem = path.strip_suffix(".gz");
+    let gz = stem.is_some();
+    let Some(format) = args.format.or_else(|| input::format_of(stem.unwrap_or(&path))) else {
         let message = "This is not a valid file type. Files must be in a required CMS template format (.json or .csv)";
         output::print(&if args.json {
             format!("{{\n  \"error\": \"{message}\"\n}}\n")
