@@ -118,7 +118,8 @@ expects `hpt-validator-rs` to be checked out next to this repository.
 
 `oracle/run.sh` builds upstream's CLI, pinned in `UPSTREAM.lock`, and compares both
 output formats of the two CLIs on all those cases, apart from paths, versions, times and
-the keys this CLI adds. It needs Node 20.19.4 on `PATH`.
+the keys this CLI adds, then the first line of standard error on a list of arguments,
+mostly refused ones. It needs Node 20.19.4 on `PATH`.
 
 ## License
 

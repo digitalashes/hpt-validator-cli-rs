@@ -1,10 +1,11 @@
 // Runs upstream's CLI `validate` and this CLI on every case at each version both accept,
 // with both output formats, and compares the outputs without what is meant to differ:
 // the file path, versions and times, and the `code` and `keyword` keys this CLI adds.
+// Then runs both CLIs on argument lists and compares the first line of standard error.
 import fs from "node:fs";
 import path from "node:path";
 import util from "node:util";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 
 const [upstream, ours, cases] = process.argv.slice(2);
 const { validate } = await import(path.resolve(upstream, "dist/commands.js"));
@@ -46,7 +47,10 @@ const comparable = {
     return JSON.stringify(result, null, 2);
   },
   table(text) {
-    return text.split("\n").filter((line) => !/^(Validating file|Using |Validator run )/.test(line)).join("\n");
+    // Upstream prints local time, this CLI UTC; the version lines name each validator.
+    return text
+      .replace(/^(Validator run \w+ at ).*$/gm, "$1")
+      .replace(/^Using \S*hpt-validator version .*$/gm, "Using hpt-validator version");
   },
 };
 
@@ -62,6 +66,26 @@ for (const file of files) {
       console.log(`differs: ${path.relative(cases, file)} ${version} ${output}`);
     }
   }
+}
+// Argument lists, each run after a case file; most are refused.
+const file = files[0];
+const argLists = [
+  [], ["3", "extra"], ["v3"], ["3.0"], ["v3.0.0"], ["2.0"], ["03"], ["2.01"], ["3.0.01"],
+  ["x3"], ["3x"], ["3x5"], ["3."], [".3"], ["v3.0.0-beta"], ["3.0.0.1"], ["99999999999999999"],
+  ["abc"],
+  ["3", "-e", "x"], ["3", "-e=5"], ["3", "-e", " 7"], ["3", "-e", "1e3"], ["3", "--x"],
+  ["3", "-x5"], ["3", "-é"], ["3", "-o", "xml"], ["3", "-oxml"], ["3", "-f", "txt"],
+  ["3", "--output=xml"], ["3", "--error-limit"],
+];
+const firstLine = (cmd, args) =>
+  spawnSync(cmd, args, { encoding: "utf-8" }).stderr.split("\n")[0];
+for (const args of argLists) {
+  const theirs = firstLine("node", [path.join(upstream, "dist/index.js"), file, ...args]);
+  const mine = firstLine(ours, [file, ...args]);
+  checked++;
+  if (theirs === mine) continue;
+  differ++;
+  console.log(`differs: ${args.join(" ")}\n  theirs ${theirs}\n  mine   ${mine}`);
 }
 console.log(`${checked} outputs compared, ${differ} differ`);
 process.exitCode = differ ? 1 : 0;
