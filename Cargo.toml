@@ -1,6 +1,6 @@
 [package]
 name = "hpt-validator-cli"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.88"
 description = "Command-line validator for CMS Hospital Price Transparency machine-readable files, a port of @cmsgov/hpt-validator-cli"
