@@ -13,8 +13,8 @@ of the validator itself, and prints what upstream's CLI prints.
 > tools and does not speak for CMS.
 
 - **Same output as upstream.** The errors and alerts are those of `@cmsgov/hpt-validator`
-  2.6.0, in the same order with the same messages, and both output formats are laid out as
-  upstream's CLI 1.10.8 lays them out.
+  2.6.1, in the same order with the same messages, and both output formats are laid out as
+  upstream's CLI 1.12.0 lays them out.
 - **One binary.** No Node, no network access, no runtime dependencies.
 - **Made for scripts and agents.** Exit codes say whether the file is valid, and
   `-o json` gives every finding a stable code. See [AGENTS.md](AGENTS.md).
@@ -50,6 +50,7 @@ curl -s https://example.org/standardcharges.csv | hpt-validator - v3.0 -f csv
 | `-o, --output table\|json` | Tables for people (the default) or one JSON object.                                  |
 | `-e, --error-limit <n>`    | Stop after `n` errors; alerts are capped at `n` too. Default 1000, `0` for no limit. |
 | `--extended`               | Also report the file type and what upstream drops or never reports.                  |
+| `-d, --debug`              | Accepted for upstream's command lines; an input error is always shown in full.       |
 | `-V, --version`            | Print the CLI and validator versions.                                                |
 
 Exit codes:
@@ -94,14 +95,15 @@ physical line its row starts on. The codes and the Extended findings are describ
 
 ## Differences from upstream's CLI
 
-- Exit codes. Upstream exits with 0 whatever the result, and with 1 when it crashes.
+- Exit codes. Upstream exits with 0 whatever the result, even when it cannot read the input.
 - No network. Upstream asks the npm registry for the latest CLI version on every run;
   `--version` here prints the CLI and validator versions only.
 - `-` reads standard input, and `--extended` is new.
 - `validatorVersion` and the version lines name this port's validator.
 - A negative `--error-limit` is refused. Upstream takes it as no limit on errors and
   drops every row alert.
-- A missing or unreadable file is an error message and exit code 3, not a stack trace.
+- A missing or unreadable file is `error: <path>: <reason>` and exit code 3. Upstream
+  prints "An unexpected error occurred" with Node's reason and a hint to rerun with `-d`.
 - Table output: times are in ISO 8601 UTC rather than local time, cells are never
   coloured, and the `originalError` cell of a JSON syntax error shows `{}` rather than the
   parser's stack trace. Character widths follow Node's rules for builds without ICU, so a

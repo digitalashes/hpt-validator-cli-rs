@@ -1,4 +1,4 @@
-//! `hpt-validator`: the command line of `@cmsgov/hpt-validator-cli` 1.10.8 over the
+//! `hpt-validator`: the command line of `@cmsgov/hpt-validator-cli` 1.12.0 over the
 //! `hpt-validator` crate, plus `--extended`, `-` for standard input and exit codes.
 
 mod args;

@@ -154,6 +154,7 @@ fn paths() {
     assert_eq!(cli(&[&case, "3"], &[]).status.code(), Some(1));
     assert_eq!(cli(&[&case, "3", "extra"], &[]).status.code(), Some(1));
     assert_eq!(cli(&[&case, "3", "-e", "-0"], &[]).status.code(), Some(1));
+    assert_eq!(cli(&[&case, "3", "-de5"], &[]).status.code(), Some(1));
     for usage in [
         &[&case, "2.0"][..],
         &[&case, "03"],
@@ -166,6 +167,8 @@ fn paths() {
         &[&case, "3", "-e=5"],
         &[&case, "3", "-x5"],
         &[&case, "3", "-é"],
+        &[&case, "3", "-d5"],
+        &[&case, "3", "--debug=x"],
     ] {
         assert_eq!(cli(usage, &[]).status.code(), Some(2), "{usage:?}");
     }

@@ -43,7 +43,10 @@ pub fn render(report: &Report) -> String {
         paint(&mut out, 32, "No errors found");
     } else {
         paint(&mut out, 31, &count(report.errors.len(), "error"));
-        table(&mut out, &report.errors);
+        // Upstream prints errors as one table per 1000, each indexed and sized on its own.
+        for chunk in report.errors.chunks(1000) {
+            table(&mut out, chunk);
+        }
     }
     // Upstream prints the alert count and table even when there are none.
     paint(&mut out, 33, &count(report.alerts.len(), "alert"));

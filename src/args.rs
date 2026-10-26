@@ -15,6 +15,7 @@ Options:
   -f, --format <string>      file format of file (choices: "csv", "json")
   -o, --output <string>      output format (choices: "table", "json", default: "table")
   -e, --error-limit <value>  maximum number for errors (default: 1000)
+  -d, --debug                show debug output for system errors (default: false)
   --extended                 also report the file type and what upstream drops or never reports
   -h, --help                 display help for command
 
@@ -45,7 +46,8 @@ pub fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
     let mut positional = Vec::new();
     let (mut format, mut json) = (None, false);
     let mut options = Options { max_errors: 1000, mode: Mode::Default };
-    while let Some(arg) = args.next() {
+    let mut pending = None;
+    while let Some(arg) = pending.take().or_else(|| args.next()) {
         let text = arg.to_string_lossy().into_owned();
         if text == "-" || !text.starts_with('-') {
             positional.push(arg);
@@ -79,6 +81,13 @@ pub fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Args, String> {
                 std::process::exit(0);
             }
             "--extended" => options.mode = Mode::Extended,
+            // Upstream's -d adds a stack trace to an input error; this one is always complete.
+            // Commander reads the rest of a short flag as more flags: `-de5` is `-d -e5`.
+            "-d" | "--debug" => match inline.take() {
+                Some(_) if name == "--debug" => return Err(format!("unknown option '{text}'")),
+                Some(rest) => pending = Some(format!("-{rest}").into()),
+                None => {}
+            },
             "-f" | "--format" => {
                 format = Some(match value(FORMAT)?.as_str() {
                     "csv" => Format::Csv,

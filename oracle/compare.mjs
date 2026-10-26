@@ -16,21 +16,22 @@ const files = fs.readdirSync(cases, { recursive: true })
 Error.prototype[util.inspect.custom] = () => "{}";
 
 // Upstream prints with console.log and console.table; collect what they write.
-async function upstreamOutput(file, version, output) {
+async function upstreamOutput(file, version, output, errorLimit) {
   let text = "";
   const write = process.stdout.write;
   process.stdout.write = (s) => { text += s; return true; };
   try {
-    await validate(file, version, { output, errorLimit: 1000 });
+    await validate(file, version, { output, errorLimit });
   } finally {
     process.stdout.write = write;
   }
   return text;
 }
 
-function ourOutput(file, version, output) {
+function ourOutput(file, version, output, errorLimit) {
+  const args = [file, version, "-o", output, "-e", String(errorLimit)];
   try {
-    return execFileSync(ours, [file, version, "-o", output], { encoding: "utf-8" });
+    return execFileSync(ours, args, { encoding: "utf-8", maxBuffer: 1 << 30 });
   } catch (e) {
     return e.stdout; // an invalid file exits with 1
   }
@@ -55,18 +56,25 @@ const comparable = {
 };
 
 let checked = 0, differ = 0;
+async function compare(file, version, output, errorLimit = 1000) {
+  const theirs = comparable[output](await upstreamOutput(file, version, output, errorLimit));
+  const mine = comparable[output](ourOutput(file, version, output, errorLimit));
+  checked++;
+  if (theirs === mine) return;
+  differ++;
+  console.log(`differs: ${path.relative(cases, file)} ${version} ${output} -e ${errorLimit}`);
+}
 for (const file of files) {
   for (const version of ["2.1.0", "2.2.0", "3.0.0"]) {
-    for (const output of ["json", "table"]) {
-      const theirs = comparable[output](await upstreamOutput(file, version, output));
-      const mine = comparable[output](ourOutput(file, version, output));
-      checked++;
-      if (theirs === mine) continue;
-      differ++;
-      console.log(`differs: ${path.relative(cases, file)} ${version} ${output}`);
-    }
+    for (const output of ["json", "table"]) await compare(file, version, output);
   }
 }
+// Upstream prints errors as one table per 1000. Every code number up to the count that row 3
+// lacks is two errors, so `code | 2000` fills the limit.
+const many = "target/many-errors.csv";
+const few = fs.readFileSync(path.join(cases, "findings/code-count-past-columns.csv"), "utf-8");
+fs.writeFileSync(many, few.replace("code | 40", "code | 2000"));
+await compare(many, "2.2.0", "table", 2500);
 // Argument lists, each run after a case file; most are refused.
 const file = files[0];
 const argLists = [
@@ -76,7 +84,8 @@ const argLists = [
   ["abc"],
   ["3", "-e", "x"], ["3", "-e=5"], ["3", "-e", " 7"], ["3", "-e", "1e3"], ["3", "--x"],
   ["3", "-x5"], ["3", "-é"], ["3", "-o", "xml"], ["3", "-oxml"], ["3", "-f", "txt"],
-  ["3", "--output=xml"], ["3", "--error-limit"],
+  ["3", "--output=xml"], ["3", "--error-limit"], ["3", "-d5"], ["3", "-d=5"], ["3", "-dx"],
+  ["3", "-de", "x"], ["3", "--debug=x"],
 ];
 const firstLine = (cmd, args) =>
   spawnSync(cmd, args, { encoding: "utf-8" }).stderr.split("\n")[0];
