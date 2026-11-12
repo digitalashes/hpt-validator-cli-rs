@@ -4,10 +4,5 @@ updates:
     directory: /
     schedule:
       interval: weekly
-  - package-ecosystem: cargo
-    directory: /
-    schedule:
-      interval: weekly
-    ignore:
-      # Released together with this CLI.
-      - dependency-name: hpt-validator
+  # No cargo: Dependabot checks out this repo alone, so the path dependency on
+  # ../hpt-validator-rs cannot be resolved and every cargo run fails.
